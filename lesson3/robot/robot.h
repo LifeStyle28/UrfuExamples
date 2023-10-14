@@ -7,6 +7,7 @@
 #include <boost/asio.hpp>
 #include <iostream>
 #include <chrono>
+#include <memory>
 
 namespace robot
 {
@@ -25,7 +26,7 @@ public:
     constexpr static double ROTATION_SPEED = 30;  // скорость поворота (градусов в секунду)
 
     Robot(net::io_context& io, int id) :
-        m_timer{io},
+        m_timer{std::make_shared<net::steady_timer>(io)},
         m_id{id}
     {
     }
@@ -38,9 +39,9 @@ public:
         const auto t = 1s * distance / SPEED;
         std::cout << m_id << "> Walk for "sv << t.count() << "s\n"sv;
 
-        m_timer.expires_after(chrono::duration_cast<Duration>(t));
+        m_timer->expires_after(chrono::duration_cast<Duration>(t));
 
-        m_timer.async_wait([distance, cb = std::forward<Callback>(cb), this](error_code ec) {
+        m_timer->async_wait([distance, cb = std::forward<Callback>(cb), this, timer = m_timer](error_code ec) {
             if (ec)
             {
                 throw std::runtime_error(ec.what());
@@ -58,9 +59,9 @@ public:
         const auto t = 1s * std::abs(angle) / ROTATION_SPEED;
         std::cout << m_id << "> Start rotating by "sv << angle << "deg.\n"sv;
 
-        m_timer.expires_after(chrono::duration_cast<Duration>(t));
+        m_timer->expires_after(chrono::duration_cast<Duration>(t));
 
-        m_timer.async_wait([angle, cb = std::forward<Callback>(cb), this, t](error_code ec) {
+        m_timer->async_wait([angle, cb = std::forward<Callback>(cb), this, t, timer = m_timer](error_code ec) {
             if (ec)
             {
                 throw std::runtime_error(ec.what());
@@ -73,7 +74,7 @@ public:
     }
 
 private:
-    net::steady_timer m_timer;
+    std::shared_ptr<net::steady_timer> m_timer;
     int m_id;
     int m_angle = 0;
     int m_distance = 0;
